@@ -1,7 +1,5 @@
 pipeline {
-    // 1. 전체 에이전트를 클라우드 라벨('docker')로 고정합니다.
-    // 이렇게 해야 빌드된 파일이 스테이지간에 유실되지 않고 mvn도 인식됩니다.
-    agent { label 'docker' }
+    agent { label 'docker-agent' }
 
     stages {
         stage('CheckOut') {
@@ -13,14 +11,12 @@ pipeline {
 
         stage('Build') {
             steps {
-                // 클라우드 에이전트(maven 이미지) 환경에서 실행됨
                 sh 'mvn clean package'
             }
         }
 
         stage('ImageBuild & Tag') {
             steps {
-                // $BUILDNUMBER -> ${BUILD_NUMBER} 표준 변수로 수정
                 sh 'docker image build -t tomcat:hello .'
                 sh "docker image tag tomcat:hello partizang2/tomcat:${BUILD_NUMBER}"
                 sh "docker image tag tomcat:hello partizang2/tomcat:latest"
@@ -38,7 +34,6 @@ pipeline {
 
         stage('Running Container') {
             steps {
-                // 원격지(103번) 서버 초기화 및 실행. 마지막 따옴표 오류 수정됨.
                 sh 'docker -H tcp://192.168.56.103:2375 rm -f webserver || true'
                 sh 'docker -H tcp://192.168.56.103:2375 run -d --name webserver -p 80:8080 partizang2/tomcat:latest'
             }
