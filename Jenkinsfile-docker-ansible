@@ -1,0 +1,44 @@
+pipeline {
+    agent { label 'docker-agent' }
+
+    stages {
+        stage('CheckOut') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/partizang2/source-maven-java-spring-hello-webapp.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('ImageBuild & Tag') {
+            steps {
+                sh 'docker image build -t tomcat:hello .'
+                sh "docker image tag tomcat:hello partizang2/tomcat:${BUILD_NUMBER}"
+                sh "docker image tag tomcat:hello partizang2/tomcat:latest"
+            }
+        }
+
+        stage('ImagePush') {
+            steps {
+                withDockerRegistry(credentialsId: 'docker-hub-token', url: 'https://index.docker.io/v1/') {
+                    sh "docker image push partizang2/tomcat:${BUILD_NUMBER}"
+                    sh "docker image push partizang2/tomcat:latest"
+                }
+            }
+        }
+
+        stage('Running Container') {
+	    agent {
+	     docker { image 'docker.dind' }
+	    }
+            steps {
+	      ansiblePlaybook(playbook: 'playbook.yaml')
+            }
+        }
+    }
+}

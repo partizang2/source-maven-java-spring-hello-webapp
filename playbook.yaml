@@ -1,0 +1,11 @@
+- hosts: localhost
+  connection: local
+
+  tasks:
+  - name: Create & Start Container
+    docker_container:
+      name: myweb
+      image: "partizang2/tomcat:latest"
+      state: started
+      ports:
+      - "80:8080"
