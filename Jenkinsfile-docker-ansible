@@ -3,7 +3,7 @@ pipeline {
 
   stages {
     stage('CheckOut') {
-      agent any
+      agent { label ('local') }
       steps {
         git branch: 'main',
         url: 'https://github.com/jhkim-09/source-maven-java-spring-hello-webapp.git'
@@ -18,20 +18,20 @@ pipeline {
       }
     }
     stage('ImageBuild') {
-      agent any
+      agent { label ('local') }
       steps {
         sh 'docker image build -t tomcat:hello .'
       }
     }
     stage('ImageTag') {
-      agent any
+      agent { label ('local') }
       steps {
 //        sh 'docker image tag tomcat:hello partizang2/tomcat:$BUILDNUMBER'
         sh 'docker image tag tomcat:hello partizang2/tomcat:latest'
       }
     }
     stage('ImagePush') {
-      agent any
+      agent { label ('local') }
       steps {
         withDockerRegistry(credentialsId: 'docker-hub-token', url: 'https://index.docker.io/v1/') {
 //          sh 'docker image push partizang2/tomcat:$BUILDNUMBER'
@@ -40,12 +40,11 @@ pipeline {
       }
     }
     stage('Running Container') {
-      agent {
-        docker { image 'docker:dind' }
-      }
+      agent { label ('local') }
       steps {
         ansiblePlaybook(playbook: 'playbook.yaml')
       }
     }
   }
 }
+
