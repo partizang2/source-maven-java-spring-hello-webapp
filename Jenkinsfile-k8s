@@ -58,7 +58,7 @@ spec:
     stage('Image Build & Push') {
       steps {
         container('kaniko') {
-          sh 'executor --context=dir:///home/jenkins/agent/workspace/ --destination=partizang2/k8s:$BUILD_NUMBER --destination=partizang2/k8s:latest'
+          sh 'executor --context=dir:///home/jenkins/agent/workspace/test/ --destination=partizang2/k8s:$BUILD_NUMBER --destination=partizang2/k8s:latest'
         }
       }
     }
