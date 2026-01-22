@@ -1,0 +1,92 @@
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+    - name: maven
+      image: maven:3.8.5-openjdk-17
+      command:
+        - sleep
+      args:
+        - infinity
+    - name: git
+      image: alpine/git
+      command:
+        - sleep
+      args:
+        - infinity
+    - name: kaniko
+      image: gcr.io/kaniko-project/executor:debug
+      command:
+        - sleep
+      args:
+        - infinity
+      volumeMounts:
+        - name: registry-credentials
+          mountPath: /kaniko/.docker
+  volumes:
+    - name: registry-credentials
+      secret:
+        secretName: regcred
+        items:
+          - key: .dockerconfigjson
+            path: config.json
+'''
+    }
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        container('maven') {
+          git branch: 'main',
+          url: 'https://github.com/jhkim-09/source-maven-java-spring-hello-webapp.git'
+        }
+      }
+    }
+    stage('Build & Test') {
+      steps {
+        container('maven') {
+          sh 'mvn clean package'
+        }
+      }
+    }
+    stage('Image Build & Push') {
+      steps {
+        container('kaniko') {
+          sh 'executor --context=dir:///home/jenkins/agent/workspace/test/ --destination=partizang2/k8s:$BUILD_NUMBER --destination=partizang2/k8s:latest'
+        }
+      }
+    }
+    stage('Update k8s Manifests & Push') {
+      environment {
+        githubUser    = 'partizang2'
+        githubEmail   = 'mia7579@naver.com'
+        githubId      = 'partizang2'
+        githubRepo    = 'argo-test'
+        githubURL     = "https://github.com/${githubId}/${githubRepo}.git"
+        dockerhubId   = 'partizang2'
+        dockerhubRepo = 'k8s'
+      }
+      steps {
+        container('git') {
+          git branch: 'main', credentialsId: 'github-credential',
+          url: "${githubURL}"
+          sh "git config --global --add safe.directory ${workspace}"
+          sh "git config --global user.name ${githubUser}"
+          sh "git config --global user.email ${githubEmail}"
+          sh 'sed -i "s/image:.*/image: ${dockerhubId}\\/${dockerhubRepo}:${BUILD_NUMBER}/g" deployment.yaml'
+          sh 'git add deployment.yaml'
+          sh 'git commit -m "Jenkins Build Number - ${BUILD_NUMBER}"'
+          withCredentials([gitUsernamePassword(credentialsId: 'github-credential', gitToolName: 'Default')]) {
+            sh 'git push --set-upstream origin main'
+          }
+        }
+      }
+    }
+  }
+}
+
